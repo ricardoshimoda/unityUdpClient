@@ -9,19 +9,18 @@ using System.Net;
 public class NetworkMan : MonoBehaviour
 {
     public UdpClient udp;
+    private float xStep = 1.5f;
+
+    private GameObject rotatingCubePrefab;
     // Start is called before the first frame update
     void Start()
     {
+        rotatingCubePrefab = Resources.Load("MyRotatingCube", typeof(GameObject)) as GameObject;
         udp = new UdpClient();
-        
-        udp.Connect("PUT_IP_ADDRESS_HERE",12345);
-
+        udp.Connect("34.201.53.13",12345);
         Byte[] sendBytes = Encoding.ASCII.GetBytes("connect");
-      
         udp.Send(sendBytes, sendBytes.Length);
-
         udp.BeginReceive(new AsyncCallback(OnReceived), udp);
-
         InvokeRepeating("HeartBeat", 1, 1);
     }
 
@@ -29,32 +28,37 @@ public class NetworkMan : MonoBehaviour
         udp.Dispose();
     }
 
-
     public enum commands{
         NEW_CLIENT,
-        UPDATE
+        UPDATE,
+        OTHERS,
+        DELETE
     };
     
     [Serializable]
     public class Message{
         public commands cmd;
+        public Player[] players;
+    }
+
+    public Queue<Message> spawnMessages = new Queue<Message>();
+    public Queue<Message> updateMessages = new Queue<Message>();
+    public Queue<Message> deleteMessages = new Queue<Message>();
+
+    [Serializable]
+    public class receivedColor{
+        public float R;
+        public float G;
+        public float B;
     }
     
     [Serializable]
     public class Player{
         public string id;
-        public struct receivedColor{
-            public float R;
-            public float G;
-            public float B;
-        }
         public receivedColor color;        
     }
 
-    [Serializable]
-    public class NewPlayer{
-        
-    }
+    public Dictionary<string, GameObject> networkedPlayers = new Dictionary<string, GameObject>();
 
     [Serializable]
     public class GameState{
@@ -75,18 +79,26 @@ public class NetworkMan : MonoBehaviour
         
         // do what you'd like with `message` here:
         string returnData = Encoding.ASCII.GetString(message);
-        Debug.Log("Got this: " + returnData);
-        
+        Debug.Log("***********************************");        
+        Debug.Log(returnData);        
         latestMessage = JsonUtility.FromJson<Message>(returnData);
+
         try{
             switch(latestMessage.cmd){
                 case commands.NEW_CLIENT:
+                    spawnMessages.Enqueue(latestMessage);
                     break;
                 case commands.UPDATE:
-                    lastestGameState = JsonUtility.FromJson<GameState>(returnData);
+                    updateMessages.Enqueue(latestMessage);
+                    break;
+                case commands.OTHERS:
+                    spawnMessages.Enqueue(latestMessage);
+                    break;
+                case commands.DELETE:
+                    deleteMessages.Enqueue(latestMessage);
                     break;
                 default:
-                    Debug.Log("Error");
+                    Debug.Log("Error - no suitable message found!!!!!");
                     break;
             }
         }
@@ -99,14 +111,46 @@ public class NetworkMan : MonoBehaviour
     }
 
     void SpawnPlayers(){
-
+        while(spawnMessages.Count > 0){
+            var spawnMessage = spawnMessages.Dequeue();
+            for(int insertPlayerCounter = 0; insertPlayerCounter < spawnMessage.players.Length; insertPlayerCounter++){
+                int finalCount = networkedPlayers.Count + 1;
+                float xCoord = ((int)finalCount/2) * xStep * (finalCount%2 == 1?-1:1);
+                GameObject newCube = Instantiate(
+                    rotatingCubePrefab,
+                    new Vector3(xCoord, 0, 0), 
+                    Quaternion.Euler(0, 0, 0)) as GameObject;
+                newCube.GetComponent<NetworkCube>()
+                    .ChangeColor(spawnMessage.players[insertPlayerCounter].color.R, spawnMessage.players[insertPlayerCounter].color.G, spawnMessage.players[insertPlayerCounter].color.B);
+                networkedPlayers.Add(spawnMessage.players[insertPlayerCounter].id, newCube);
+            }
+        }
     }
 
     void UpdatePlayers(){
-
+        while(updateMessages.Count > 0){
+            var updateMessage = updateMessages.Dequeue();
+            for(int updatePlayerCounter = 0; updatePlayerCounter < updateMessage.players.Length; updatePlayerCounter++){
+                var cubeId = updateMessage.players[updatePlayerCounter].id;
+                if(networkedPlayers.ContainsKey(cubeId)){
+                    networkedPlayers[cubeId].GetComponent<NetworkCube>()
+                    .ChangeColor(updateMessage.players[updatePlayerCounter].color.R, updateMessage.players[updatePlayerCounter].color.G, updateMessage.players[updatePlayerCounter].color.B);
+                }
+            }
+        }
     }
 
     void DestroyPlayers(){
+        while(deleteMessages.Count > 0){
+            var deleteMessage = deleteMessages.Dequeue();
+            for(int updatePlayerCounter = 0; updatePlayerCounter < deleteMessage.players.Length; updatePlayerCounter++){
+                var cubeId = deleteMessage.players[updatePlayerCounter].id;
+                if(networkedPlayers.ContainsKey(cubeId)){
+                    Destroy(networkedPlayers[cubeId]);
+                    networkedPlayers.Remove(cubeId);
+                }
+            }
+        }
 
     }
     

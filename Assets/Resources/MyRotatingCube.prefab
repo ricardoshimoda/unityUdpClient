@@ -106,5 +106,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a47efd8650e0c1a4dbf467fd8da5852e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  angularSpeed: 300
+  angularSpeed: 0
   id: 

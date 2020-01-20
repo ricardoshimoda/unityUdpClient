@@ -42,8 +42,11 @@ public class NetworkMan : MonoBehaviour
     }
 
     public Queue<Message> spawnMessages = new Queue<Message>();
+    public object lockSpawn = new object();
     public Queue<Message> updateMessages = new Queue<Message>();
+    public object lockUpdate= new object();
     public Queue<Message> deleteMessages = new Queue<Message>();
+    public object lockDelete= new object();
 
     [Serializable]
     public class receivedColor{
@@ -86,16 +89,25 @@ public class NetworkMan : MonoBehaviour
         try{
             switch(latestMessage.cmd){
                 case commands.NEW_CLIENT:
-                    spawnMessages.Enqueue(latestMessage);
+                    lock(lockSpawn){
+                        spawnMessages.Enqueue(latestMessage);
+                    }
                     break;
                 case commands.UPDATE:
-                    updateMessages.Enqueue(latestMessage);
+                    lock(lockUpdate)
+                    {
+                        updateMessages.Enqueue(latestMessage);
+                    }
                     break;
                 case commands.OTHERS:
-                    spawnMessages.Enqueue(latestMessage);
+                    lock(lockSpawn){
+                        spawnMessages.Enqueue(latestMessage);
+                    }
                     break;
                 case commands.DELETE:
-                    deleteMessages.Enqueue(latestMessage);
+                    lock(lockDelete){
+                        deleteMessages.Enqueue(latestMessage);
+                    }
                     break;
                 default:
                     Debug.Log("Error - no suitable message found!!!!!");
@@ -111,47 +123,56 @@ public class NetworkMan : MonoBehaviour
     }
 
     void SpawnPlayers(){
-        while(spawnMessages.Count > 0){
-            var spawnMessage = spawnMessages.Dequeue();
-            for(int insertPlayerCounter = 0; insertPlayerCounter < spawnMessage.players.Length; insertPlayerCounter++){
-                int finalCount = networkedPlayers.Count + 1;
-                float xCoord = ((int)finalCount/2) * xStep * (finalCount%2 == 1?-1:1);
-                GameObject newCube = Instantiate(
-                    rotatingCubePrefab,
-                    new Vector3(xCoord, 0, 0), 
-                    Quaternion.Euler(0, 0, 0)) as GameObject;
-                newCube.GetComponent<NetworkCube>()
-                    .ChangeColor(spawnMessage.players[insertPlayerCounter].color.R, spawnMessage.players[insertPlayerCounter].color.G, spawnMessage.players[insertPlayerCounter].color.B);
-                networkedPlayers.Add(spawnMessage.players[insertPlayerCounter].id, newCube);
+        lock(lockSpawn)
+        {
+            while(spawnMessages.Count > 0){
+                var spawnMessage = spawnMessages.Dequeue();
+                for(int insertPlayerCounter = 0; insertPlayerCounter < spawnMessage.players.Length; insertPlayerCounter++){
+                    int finalCount = networkedPlayers.Count + 1;
+                    float xCoord = ((int)finalCount/2) * xStep * (finalCount%2 == 1?-1:1);
+                    GameObject newCube = Instantiate(
+                        rotatingCubePrefab,
+                        new Vector3(xCoord, 0, 0), 
+                        Quaternion.Euler(0, 0, 0)) as GameObject;
+                    newCube.GetComponent<NetworkCube>()
+                        .ChangeColor(spawnMessage.players[insertPlayerCounter].color.R, spawnMessage.players[insertPlayerCounter].color.G, spawnMessage.players[insertPlayerCounter].color.B);
+                    networkedPlayers.Add(spawnMessage.players[insertPlayerCounter].id, newCube);
+                }
             }
         }
     }
 
     void UpdatePlayers(){
-        while(updateMessages.Count > 0){
-            var updateMessage = updateMessages.Dequeue();
-            for(int updatePlayerCounter = 0; updatePlayerCounter < updateMessage.players.Length; updatePlayerCounter++){
-                var cubeId = updateMessage.players[updatePlayerCounter].id;
-                if(networkedPlayers.ContainsKey(cubeId)){
-                    networkedPlayers[cubeId].GetComponent<NetworkCube>()
-                    .ChangeColor(updateMessage.players[updatePlayerCounter].color.R, updateMessage.players[updatePlayerCounter].color.G, updateMessage.players[updatePlayerCounter].color.B);
+        lock(lockUpdate){
+            while(updateMessages.Count > 0){
+                var updateMessage = updateMessages.Dequeue();
+                for(int updatePlayerCounter = 0; updatePlayerCounter < updateMessage.players.Length; updatePlayerCounter++){
+                    var cubeId = updateMessage.players[updatePlayerCounter].id;
+                    if(networkedPlayers.ContainsKey(cubeId)){
+                        networkedPlayers[cubeId].GetComponent<NetworkCube>()
+                        .ChangeColor(updateMessage.players[updatePlayerCounter].color.R, 
+                                     updateMessage.players[updatePlayerCounter].color.G, 
+                                     updateMessage.players[updatePlayerCounter].color.B);
+                    }
                 }
             }
         }
     }
 
     void DestroyPlayers(){
-        while(deleteMessages.Count > 0){
-            var deleteMessage = deleteMessages.Dequeue();
-            for(int updatePlayerCounter = 0; updatePlayerCounter < deleteMessage.players.Length; updatePlayerCounter++){
-                var cubeId = deleteMessage.players[updatePlayerCounter].id;
-                if(networkedPlayers.ContainsKey(cubeId)){
-                    Destroy(networkedPlayers[cubeId]);
-                    networkedPlayers.Remove(cubeId);
+        lock(lockDelete)
+        {
+            while(deleteMessages.Count > 0){
+                var deleteMessage = deleteMessages.Dequeue();
+                for(int updatePlayerCounter = 0; updatePlayerCounter < deleteMessage.players.Length; updatePlayerCounter++){
+                    var cubeId = deleteMessage.players[updatePlayerCounter].id;
+                    if(networkedPlayers.ContainsKey(cubeId)){
+                        Destroy(networkedPlayers[cubeId]);
+                        networkedPlayers.Remove(cubeId);
+                    }
                 }
             }
         }
-
     }
     
     void HeartBeat(){

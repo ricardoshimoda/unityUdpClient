@@ -311,5 +311,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   latestMessage:
     cmd: 0
+    players: []
   lastestGameState:
     players: []

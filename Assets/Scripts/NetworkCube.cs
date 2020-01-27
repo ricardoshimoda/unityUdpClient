@@ -5,7 +5,9 @@ using UnityEngine;
 public class NetworkCube : MonoBehaviour
 {
     public float angularSpeed = 200;
+    public float linearSpeed = 100;
     public string id = string.Empty;
+    public bool mainCube = false;
     // Start is called before the first frame update
     void Start()
     {
@@ -21,6 +23,17 @@ public class NetworkCube : MonoBehaviour
     {
         var angle = angularSpeed * Time.deltaTime;
         this.transform.Rotate(0,angle,0);
+        if(mainCube){
+            if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
+                this.transform.position += new Vector3(-linearSpeed * Time.deltaTime, 0, 0);
+            if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
+                this.transform.position += new Vector3(linearSpeed * Time.deltaTime, 0, 0);
+            if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
+                this.transform.position += new Vector3(0, linearSpeed * Time.deltaTime, 0);
+            if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))
+                this.transform.position += new Vector3(0, -linearSpeed * Time.deltaTime, 0);
+
+        }
     }
 
     // Changes Color Every Second - on server Update message

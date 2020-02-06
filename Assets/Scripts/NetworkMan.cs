@@ -21,13 +21,13 @@ public class NetworkMan : MonoBehaviour
     {
         rotatingCubePrefab = Resources.Load("MyRotatingCube", typeof(GameObject)) as GameObject;
         udp = new UdpClient();
-        udp.Connect("34.201.53.13", 12345);
+        udp.Connect("34.229.226.131", 12345);
         Debug.Log(((IPEndPoint)udp.Client.LocalEndPoint).Port.ToString());
         Byte[] sendBytes = Encoding.ASCII.GetBytes("connect");
         udp.Send(sendBytes, sendBytes.Length);
         udp.BeginReceive(new AsyncCallback(OnReceived), udp);
         InvokeRepeating("HeartBeat", 1, 1);        
-        InvokeRepeating("SendPosition", 0.1f, 1);        
+        InvokeRepeating("SendPosition", 1.0f/30.0f, 1);        
     }
 
     void OnDestroy(){
@@ -174,17 +174,18 @@ public class NetworkMan : MonoBehaviour
                     var cubeId = updateMessage.players[updatePlayerCounter].id;
                     if(networkedPlayers.ContainsKey(cubeId)){
                         var currentCube = networkedPlayers[cubeId];
+                        /*
                         currentCube.GetComponent<NetworkCube>()
                         .ChangeColor(updateMessage.players[updatePlayerCounter].color.R, 
                                      updateMessage.players[updatePlayerCounter].color.G, 
-                                     updateMessage.players[updatePlayerCounter].color.B);
-                        if(cubeId != mainId){
-                            currentCube.transform.position = new Vector3(
-                                updateMessage.players[updatePlayerCounter].position.x,
-                                updateMessage.players[updatePlayerCounter].position.y,
-                                updateMessage.players[updatePlayerCounter].position.z
-                            );
-                        }
+                                     updateMessage.players[updatePlayerCounter].color.B);*/
+                        //if(cubeId != mainId){
+                        currentCube.transform.position = new Vector3(
+                            updateMessage.players[updatePlayerCounter].position.x,
+                            updateMessage.players[updatePlayerCounter].position.y,
+                            updateMessage.players[updatePlayerCounter].position.z
+                        );
+                        //}
                     }
                 }
             }
@@ -196,8 +197,21 @@ public class NetworkMan : MonoBehaviour
     void RecordPosition()
     {
         if(!string.IsNullOrWhiteSpace(mainId)){
-            mainX = networkedPlayers[mainId].transform.position.x;
-            mainY = networkedPlayers[mainId].transform.position.y;
+            mainX = networkedPlayers[mainId].GetComponent<NetworkCube>().calculatedPosition.x;
+            mainY = networkedPlayers[mainId].GetComponent<NetworkCube>().calculatedPosition.y;
+            string positionMessage = "{\"op\":\"cube_position\", \"position\":{\"x\":" + mainX + ", \"y\":" + mainY + ",\"z\":0}}";
+            Debug.Log("Sending Position Message: " + positionMessage);
+            Byte[] sendBytes = Encoding.ASCII.GetBytes(positionMessage);
+            udp.Send(sendBytes, sendBytes.Length);
+        }
+    }
+
+    void SendPosition(){
+        if(!string.IsNullOrWhiteSpace(mainId)){
+            string positionMessage = "{\"op\":\"cube_position\", \"position\":{\"x\":" + mainX + ", \"y\":" + mainY + ",\"z\":0}}";
+            Debug.Log("Sending Position Message: " + positionMessage);
+            Byte[] sendBytes = Encoding.ASCII.GetBytes(positionMessage);
+            udp.Send(sendBytes, sendBytes.Length);
         }
     }
 
@@ -220,14 +234,6 @@ public class NetworkMan : MonoBehaviour
     void HeartBeat(){
         Byte[] sendBytes = Encoding.ASCII.GetBytes("heartbeat");
         udp.Send(sendBytes, sendBytes.Length);
-    }
-    void SendPosition(){
-        if(!string.IsNullOrWhiteSpace(mainId)){
-            string positionMessage = "{\"op\":\"cube_position\", \"position\":{\"x\":" + mainX + ", \"y\":" + mainY + ",\"z\":0}}";
-            Debug.Log("Sending Position Message: " + positionMessage);
-            Byte[] sendBytes = Encoding.ASCII.GetBytes(positionMessage);
-            udp.Send(sendBytes, sendBytes.Length);
-        }
     }
 
     void Update(){

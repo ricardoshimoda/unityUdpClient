@@ -21,7 +21,7 @@ public class NetworkMan : MonoBehaviour
     {
         rotatingCubePrefab = Resources.Load("MyRotatingCube", typeof(GameObject)) as GameObject;
         udp = new UdpClient();
-        udp.Connect("34.229.226.131", 12345);
+        udp.Connect("54.172.73.176", 12345);
         Debug.Log(((IPEndPoint)udp.Client.LocalEndPoint).Port.ToString());
         Byte[] sendBytes = Encoding.ASCII.GetBytes("connect");
         udp.Send(sendBytes, sendBytes.Length);
